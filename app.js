@@ -83,13 +83,25 @@ async function gh(path, { method = 'GET', body, raw = false } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
-    let msg = `${res.status}`;
-    try { msg += ' ' + (await res.json()).message; } catch { /* 본문 없음 */ }
-    throw new Error(`GitHub ${method} ${path} → ${msg}`);
+    let msg = '';
+    try { msg = (await res.json()).message || ''; } catch { /* 본문 없음 */ }
+    const err = new Error(explainGhError(res.status, method, path, msg));
+    err.status = res.status;
+    throw err;
   }
   if (res.status === 204) return null;
   return raw ? res.text() : res.json();
 }
+// GitHub 오류를 처음 쓰는 사람이 고칠 수 있는 말로 바꾼다 (guide.html 「안 될 때」와 같은 표현)
+function explainGhError(status, method, path, msg) {
+  const raw = `(GitHub ${status} ${msg})`;
+  if (status === 401) return `토큰이 맞지 않습니다. 설정에서 토큰을 다시 붙여 넣거나 새로 만드세요. ${raw}`;
+  if (status === 404 && /^\/repos\/[^/]+\/[^/]+(\/(issues|labels|contents)|$)/.test(path.split('?')[0])) return `저장소가 보이지 않습니다. 토큰에 저장소가 선택됐는지(주인), 초대를 수락했는지(협업자) 확인하세요. ${raw}`;
+  if (status === 403 && method !== 'GET') return `이 토큰에는 쓰기 권한이 없습니다. 토큰의 Issues 권한을 Read and write 로 바꾸세요. ${raw}`;
+  if (status === 403) return `이 토큰으로는 읽을 수 없습니다. 토큰 권한(Issues, Contents)을 확인하세요. ${raw}`;
+  return `GitHub 요청이 실패했습니다 ${raw}`;
+}
+
 async function ghAll(path) {
   const out = [];
   for (let page = 1; page <= 20; page++) {
@@ -628,6 +640,7 @@ function bind() {
     toast('저장했습니다'); boot();
   };
   $('#s-forget').onclick = () => { store.del('gh'); fillSettings(); toast('토큰을 지웠습니다'); boot(); };
+  $('#s-check').onclick = checkToken;
   $('#s-labels').onclick = async () => {
     if (demoGuard()) return;
     const c = cfg();
@@ -643,9 +656,37 @@ function bind() {
   };
 }
 
+// 토큰으로 할 수 있는 일을 하나씩 읽어 보고 결과를 줄마다 보여 준다 (쓰기는 실제로 하지 않는다)
+async function checkToken() {
+  const out = $('#s-check-out');
+  const c = cfg();
+  const rows = [];
+  const line = (kind, text) => { rows.push(`<div class="chk"><b class="${kind === 'PASS' ? 'p' : kind === 'FAIL' ? 'f' : 'w'}">${kind}</b> ${text}</div>`); out.innerHTML = rows.join(''); };
+  if (!c.gh) { out.innerHTML = '<div class="chk"><b class="f">FAIL</b> 저장된 토큰이 없습니다. 붙여 넣고 <b>저장</b>을 먼저 누르세요.</div>'; return; }
+  out.innerHTML = '확인 중…';
+  const kind = c.gh.startsWith('github_pat_') ? 'fine-grained' : c.gh.startsWith('ghp_') ? 'classic' : '알 수 없는 종류';
+  try {
+    const res = await fetch('https://api.github.com/user', { headers: { Authorization: `Bearer ${c.gh}`, Accept: 'application/vnd.github+json' } });
+    if (!res.ok) { line('FAIL', explainGhError(res.status, 'GET', '/user', '')); return; }
+    const me = await res.json();
+    line('PASS', `토큰이 맞습니다: ${esc(me.login)} (${kind} 토큰)`);
+    if (kind === 'classic') {
+      const scopes = (res.headers.get('x-oauth-scopes') || '').split(',').map(x => x.trim());
+      if (scopes.includes('repo')) line('PASS', 'repo 권한이 있습니다');
+      else line('FAIL', 'repo 권한이 없습니다. 발급 안내의 classic 토큰 링크로 다시 만드세요 (repo 가 미리 체크됨).');
+    }
+  } catch (e) { line('FAIL', `GitHub 에 연결하지 못했습니다: ${esc(e.message)}`); return; }
+  const step = async (label, path) => {
+    try { await gh(path); line('PASS', label); return true; } catch (e) { line('FAIL', esc(e.message)); return false; }
+  };
+  if (!await step(`${esc(c.repo)} 저장소가 보입니다`, `/repos/${c.repo}`)) return;
+  await step('이슈를 읽을 수 있습니다', `/repos/${c.repo}/issues?per_page=1`);
+  await step('기획서를 읽을 수 있습니다 (Contents)', `/repos/${c.repo}/contents/${encPath(PLAN_DIR)}?ref=${encodeURIComponent(c.branch)}`);
+  line('INFO', '이슈 쓰기 권한은 처음 저장할 때 확인됩니다. 「쓰기 권한이 없습니다」가 나오면 발급 안내 5단계를 보세요.');
+}
+
 function fillSettings() {
   const c = cfg();
-  $('#token-guide').open = !c.gh; // 토큰이 없으면 발급 안내를 펼쳐 둔다
   $('#s-repo').value = c.repo; $('#s-branch').value = c.branch; $('#s-gh').value = c.gh; $('#s-me').value = c.me;
   $('#label-doc').innerHTML = `<p>모든 일감·버그에 <code>slime</code> 라벨이 붙습니다 (23-1). 기획서 25-2 의 Projects 필드는 Project 가 생기기 전까지 아래 라벨로 대신합니다.</p>
     <table><tr><th>필드</th><th>라벨</th></tr>

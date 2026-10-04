@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>관리판 토큰 발급</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Cellipse cx=%228%22 cy=%2210%22 rx=%227%22 ry=%225%22 fill=%22%232f9e5f%22/%3E%3C/svg%3E">
+<style>
+:root{--bg:#f6f8f4;--surface:#fff;--ink:#1c2420;--muted:#5b6a62;--line:#dfe6df;--soft:#eef3ec;
+--a:#2f9e5f;--a-soft:#e3f4ea;--b:#2f6fb3;--b-soft:#e4eef9;--c:#c07a12;--c-soft:#fbf0dc;--r:#c0392b;--r-soft:#fbe5e2}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121715;--surface:#1a211e;--ink:#e6ece8;--muted:#9baba3;--line:#2b3631;--soft:#202a26;
+--a:#5cc98a;--a-soft:#1d3327;--b:#6fa8e6;--b-soft:#1c2c40;--c:#e3a64c;--c-soft:#3a2d16;--r:#e57368;--r-soft:#3a1f1c;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121715;--surface:#1a211e;--ink:#e6ece8;--muted:#9baba3;--line:#2b3631;--soft:#202a26;
+--a:#5cc98a;--a-soft:#1d3327;--b:#6fa8e6;--b-soft:#1c2c40;--c:#e3a64c;--c-soft:#3a2d16;--r:#e57368;--r-soft:#3a1f1c;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.75 "Pretendard","Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;word-break:keep-all;overflow-wrap:anywhere}
+main{max-width:760px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:24px;margin:0 0 6px;text-wrap:balance}
+h2{font-size:19px;margin:36px 0 10px;padding-top:12px;border-top:1px solid var(--line)}
+h3{font-size:16px;margin:22px 0 6px}
+a{color:var(--b)}
+.lead{color:var(--muted);margin:0 0 18px}
+.who{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin:16px 0}
+.who a{display:block;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.who a:hover{border-color:var(--a)}
+.who b{display:block;font-size:16px}
+.who span{color:var(--muted);font-size:13px}
+ol.steps{list-style:none;padding:0;margin:0;counter-reset:s}
+ol.steps>li{counter-increment:s;position:relative;padding:12px 14px 12px 52px;margin:10px 0;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+ol.steps>li::before{content:counter(s);position:absolute;left:14px;top:12px;width:26px;height:26px;border-radius:50%;background:var(--a-soft);color:var(--a);font-weight:700;display:grid;place-items:center;font-size:13px}
+.ui{display:inline-block;padding:0 6px;border-radius:5px;background:var(--soft);border:1px solid var(--line);font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;background:var(--soft);padding:0 4px;border-radius:4px}
+.note{border-left:3px solid var(--c);background:var(--c-soft);padding:8px 12px;border-radius:6px;margin:10px 0;font-size:14px}
+.warn{border-left:3px solid var(--r);background:var(--r-soft);padding:8px 12px;border-radius:6px;margin:10px 0;font-size:14px}
+.ok{border-left:3px solid var(--a);background:var(--a-soft);padding:8px 12px;border-radius:6px;margin:10px 0;font-size:14px}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--soft);color:var(--muted);font-weight:600}
+.btn{display:inline-block;margin-top:6px;padding:6px 12px;border-radius:8px;background:var(--a);color:#fff;text-decoration:none;font-weight:600}
+.small{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+  <p class="small"><a href="./">← 관리판으로 돌아가기</a></p>
+  <h1>관리판 토큰 발급 안내</h1>
+  <p class="lead">관리판이 내 GitHub 계정으로 이슈를 읽고 쓰려면 <b>토큰</b>이 필요합니다. 토큰은 이 관리판에만 주는 비밀번호 같은 것입니다. 한 번 만들어 붙여 넣으면 같은 브라우저에서는 다시 넣을 필요가 없습니다. 10분 정도 걸립니다.</p>
+
+  <p><b>누구인지 골라 해당 안내만 따라 하세요.</b></p>
+  <div class="who">
+    <a href="#owner"><b>저장소 주인 (Dong)</b><span>GameMaker 저장소를 만든 사람. fine-grained 토큰을 씁니다.</span></a>
+    <a href="#collab"><b>함께 작업하는 사람 (Wan)</b><span>초대받아 참여하는 사람. classic 토큰을 씁니다.</span></a>
+  </div>
+  <div class="note">GitHub 화면은 영어로 나옵니다. 아래에서 <span class="ui">회색 상자</span> 안의 글자가 화면에 보이는 버튼·칸 이름 그대로입니다.</div>
+
+  <h2 id="owner">저장소 주인 (Dong): fine-grained 토큰</h2>
+  <p>이 저장소 하나에만, 필요한 권한만 주는 토큰입니다.</p>
+  <ol class="steps">
+    <li><b>GitHub 에 로그인한 상태에서 토큰 만들기 화면을 엽니다.</b><br>
+      <a class="btn" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">토큰 만들기 화면 열기</a><br>
+      <span class="small">직접 찾아가려면: 오른쪽 위 프로필 사진 → <span class="ui">Settings</span> → 왼쪽 맨 아래 <span class="ui">Developer settings</span> → <span class="ui">Personal access tokens</span> → <span class="ui">Fine-grained tokens</span> → <span class="ui">Generate new token</span>.</span><br>
+      <span class="small">비밀번호나 인증 코드를 다시 물으면 입력합니다.</span></li>
+    <li><b>이름과 기간을 정합니다.</b><br>
+      <span class="ui">Token name</span> 칸에 <code>slime-manager</code> 라고 씁니다.<br>
+      <span class="ui">Expiration</span> 에서 <span class="ui">90 days</span> 를 고릅니다. 기간이 끝나면 이 안내대로 다시 만들면 됩니다.<br>
+      <span class="ui">Description</span> 은 비워 둬도 됩니다.</li>
+    <li><b>토큰 주인을 확인합니다.</b><br>
+      <span class="ui">Resource owner</span> 가 <code>DongDongLim</code> 인지 봅니다. 다른 이름이면 눌러서 <code>DongDongLim</code> 으로 바꿉니다.</li>
+    <li><b>GameMaker 저장소만 고릅니다.</b><br>
+      <span class="ui">Repository access</span> 에서 <span class="ui">Only select repositories</span> 를 누릅니다.<br>
+      아래에 생기는 <span class="ui">Select repositories</span> 를 누르고 <code>GameMaker</code> 를 검색해 체크합니다.</li>
+    <li><b>권한 두 가지를 켭니다.</b> (가장 많이 틀리는 단계입니다)<br>
+      <span class="ui">Permissions</span> 아래 <span class="ui">Repository permissions</span> 를 펼칩니다.<br>
+      목록에서 <span class="ui">Issues</span> 줄을 찾아 오른쪽 <span class="ui">Access: No access</span> 를 눌러 <span class="ui">Read and write</span> 로 바꿉니다.<br>
+      <span class="ui">Contents</span> 줄은 <span class="ui">Read-only</span> 로 바꿉니다.<br>
+      <span class="small">목록 대신 <span class="ui">+ Add permissions</span> 버튼이 보이면, 눌러서 <span class="ui">Issues</span> 와 <span class="ui">Contents</span> 를 체크해 추가한 뒤 위처럼 각각 바꿉니다.</span><br>
+      <span class="small"><span class="ui">Metadata: Read-only</span> 는 자동으로 붙습니다. 그 밖의 권한은 건드리지 않습니다.</span></li>
+    <li><b>토큰을 만듭니다.</b><br>
+      맨 아래 <span class="ui">Generate token</span> 을 누릅니다. 확인 창이 뜨면 한 번 더 <span class="ui">Generate token</span> 을 누릅니다.</li>
+    <li><b>토큰을 복사합니다.</b><br>
+      <code>github_pat_</code> 로 시작하는 긴 글자가 나옵니다. 오른쪽 복사 아이콘을 눌러 복사합니다.
+      <div class="warn">이 글자는 <b>지금 한 번만</b> 보입니다. 창을 닫았다면 같은 화면에서 토큰을 지우고 처음부터 다시 만드세요.</div></li>
+    <li><b>관리판에 붙여 넣습니다.</b> → <a href="#paste">아래 「관리판에 넣기」</a></li>
+  </ol>
+
+  <h2 id="collab">함께 작업하는 사람 (Wan): classic 토큰</h2>
+  <p>GameMaker 는 Dong 의 개인 저장소라서, 다른 사람은 fine-grained 토큰으로 접근할 수 없습니다 (GitHub 의 제한). 그래서 classic 토큰을 씁니다.</p>
+  <h3>먼저: 저장소 초대 (Dong 이 한 번)</h3>
+  <ol class="steps">
+    <li><b>Dong</b>: <a href="https://github.com/DongDongLim/GameMaker/settings/access" target="_blank" rel="noopener">GameMaker 공동 작업자 설정</a>을 열고 <span class="ui">Add people</span> 을 누른 뒤, Wan 의 GitHub 아이디를 입력해 초대합니다.</li>
+    <li><b>Wan</b>: 메일로 온 초대를 수락하거나, <a href="https://github.com/DongDongLim/GameMaker/invitations" target="_blank" rel="noopener">초대 수락 화면</a>에서 <span class="ui">Accept invitation</span> 을 누릅니다.</li>
+  </ol>
+  <h3>토큰 만들기 (Wan)</h3>
+  <ol class="steps">
+    <li><b>GitHub 에 로그인한 상태에서 classic 토큰 만들기 화면을 엽니다.</b><br>
+      <a class="btn" href="https://github.com/settings/tokens/new?scopes=repo&amp;description=slime-manager" target="_blank" rel="noopener">classic 토큰 만들기 화면 열기</a><br>
+      <span class="small">이 링크로 열면 이름(<span class="ui">Note</span>)은 <code>slime-manager</code>, 권한은 <span class="ui">repo</span> 가 미리 체크되어 있습니다.</span><br>
+      <span class="small">직접 찾아가려면: 프로필 사진 → <span class="ui">Settings</span> → <span class="ui">Developer settings</span> → <span class="ui">Personal access tokens</span> → <span class="ui">Tokens (classic)</span> → <span class="ui">Generate new token</span> → <span class="ui">Generate new token (classic)</span>.</span></li>
+    <li><b>기간을 정합니다.</b> <span class="ui">Expiration</span> 에서 <span class="ui">30 days</span> 를 고릅니다.<br>
+      <span class="small">classic 토큰은 Wan 이 들어갈 수 있는 모든 저장소에 쓸 수 있으므로 기간을 짧게 둡니다.</span></li>
+    <li><b>권한을 확인합니다.</b> <span class="ui">Select scopes</span> 에서 <span class="ui">repo</span> 가 체크되어 있으면 됩니다. 다른 것은 체크하지 않습니다.</li>
+    <li><b>토큰을 만듭니다.</b> 맨 아래 초록색 <span class="ui">Generate token</span> 을 누릅니다.</li>
+    <li><b>토큰을 복사합니다.</b> <code>ghp_</code> 로 시작하는 글자 옆 복사 아이콘을 누릅니다.
+      <div class="warn">이 글자도 <b>지금 한 번만</b> 보입니다.</div></li>
+    <li><b>관리판에 붙여 넣습니다.</b> → <a href="#paste">아래 「관리판에 넣기」</a></li>
+  </ol>
+
+  <h2 id="paste">관리판에 넣기</h2>
+  <ol class="steps">
+    <li>관리판 위쪽 <span class="ui">설정</span> 탭을 엽니다. <a href="./#settings">설정 바로 가기</a></li>
+    <li><span class="ui">GitHub 토큰</span> 칸에 붙여 넣습니다 (Mac: ⌘V, Windows: Ctrl+V).</li>
+    <li><span class="ui">나는</span> 에서 본인 이름(Wan / Dong)을 고릅니다.</li>
+    <li><span class="ui">저장</span> 을 누른 뒤 <span class="ui">토큰 확인</span> 을 누릅니다. 모든 줄이 PASS 면 끝입니다.</li>
+    <li><b>처음 한 번만 (Dong)</b>: <span class="ui">필요한 라벨 만들기</span> 를 누릅니다. 두 번째 사람부터는 필요 없습니다.</li>
+  </ol>
+  <div class="ok">토큰은 지금 쓰는 브라우저에만 저장됩니다. 다른 컴퓨터나 휴대폰에서 열면 그 기기에서 한 번 더 붙여 넣으세요. 같은 토큰을 써도 됩니다.</div>
+
+  <h2 id="trouble">안 될 때</h2>
+  <div class="tablewrap"><table>
+    <tr><th>토큰 확인에서 나온 말</th><th>원인</th><th>고치는 법</th></tr>
+    <tr><td>토큰이 맞지 않습니다</td><td>복사가 잘렸거나, 앞뒤에 빈칸이 들어갔거나, 기간이 끝났습니다</td><td>칸을 비우고 다시 붙여 넣습니다. 그래도 안 되면 새로 만듭니다</td></tr>
+    <tr><td>GameMaker 저장소가 보이지 않습니다</td><td>Dong: 4단계에서 GameMaker 를 고르지 않았습니다. Wan: 초대를 수락하지 않았습니다</td><td>Dong: 토큰 목록에서 해당 토큰을 눌러 저장소를 추가합니다. Wan: 초대를 수락합니다</td></tr>
+    <tr><td>기획서를 읽을 수 없습니다</td><td>Contents 권한이 없습니다</td><td>Dong: 5단계 Contents 를 Read-only 로 바꿉니다</td></tr>
+    <tr><td>저장할 때 「권한이 없습니다」</td><td>Issues 가 Read and write 가 아닙니다</td><td>Dong: 5단계 Issues 를 Read and write 로 바꿉니다. Wan: repo 를 체크해 새로 만듭니다</td></tr>
+    <tr><td>repo 권한이 없습니다</td><td>classic 토큰에서 repo 를 체크하지 않았습니다</td><td>위 링크로 다시 만듭니다 (repo 가 미리 체크됨)</td></tr>
+  </table></div>
+  <p class="small">이미 만든 fine-grained 토큰은 <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener">토큰 목록</a>에서 이름을 눌러 저장소와 권한을 고칠 수 있습니다. 고친 뒤에도 토큰 글자는 그대로라 다시 붙여 넣을 필요가 없습니다.</p>
+
+  <h2>지켜 주세요</h2>
+  <ul>
+    <li>토큰은 비밀번호와 같습니다. 메신저·메일·이슈 댓글에 붙여 넣지 마세요.</li>
+    <li>공용 PC 에는 넣지 마세요. 넣었다면 관리판 설정의 <span class="ui">토큰 지우기</span> 를 누르고, GitHub 토큰 목록에서 그 토큰을 삭제(<span class="ui">Delete</span>)합니다.</li>
+    <li>토큰이 새어 나간 것 같으면 바로 GitHub 토큰 목록에서 삭제하고 새로 만듭니다.</li>
+  </ul>
+</main>
+</body>
+</html>
