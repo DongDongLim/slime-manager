@@ -95,6 +95,7 @@ async function gh(path, { method = 'GET', body, raw = false } = {}) {
 // GitHub 오류를 처음 쓰는 사람이 고칠 수 있는 말로 바꾼다 (guide.html 「안 될 때」와 같은 표현)
 function explainGhError(status, method, path, msg) {
   const raw = `(GitHub ${status} ${msg})`;
+  if (status === 429 || /rate limit/i.test(msg)) return `GitHub 이 요청이 너무 잦다며 잠시 막았습니다. 1~2분 뒤 다시 시도하세요. 이미 만든 이슈는 그대로 있습니다. ${raw}`;
   if (status === 401) return `토큰이 맞지 않습니다. 설정에서 토큰을 다시 붙여 넣거나 새로 만드세요. ${raw}`;
   if (status === 404 && /^\/repos\/[^/]+\/[^/]+(\/(issues|labels|contents)|$)/.test(path.split('?')[0])) return `저장소가 보이지 않습니다. 토큰에 저장소가 선택됐는지(주인), 초대를 수락했는지(협업자) 확인하세요. ${raw}`;
   if (status === 403 && method !== 'GET') return `이 토큰에는 쓰기 권한이 없습니다. 토큰의 Issues 권한을 Read and write 로 바꾸세요. ${raw}`;
@@ -573,7 +574,10 @@ function bind() {
     let ok = 0;
     for (const id of ids) {
       const t = S.planTasks.find(x => x.id === id);
-      try { await createIssue(planTaskToIssue(t)); ok++; } catch (e) { toast(`${id}: ${e.message}`, 6000); break; }
+      // 연속 생성은 GitHub 의 짧은 시간 제한(secondary rate limit)에 걸리므로 간격을 둔다
+      if (ok) await new Promise(r => setTimeout(r, 1500));
+      try { await createIssue(planTaskToIssue(t)); ok++; toast(`이슈 만드는 중 ${ok}/${ids.length}`, 2000); }
+      catch (e) { toast(`${ok}개 만든 뒤 ${id} 에서 멈췄습니다. ${e.message}`, 12000); return; }
     }
     toast(`이슈 ${ok}개를 만들었습니다`);
   };
