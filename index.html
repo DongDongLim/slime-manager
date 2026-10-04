@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>슬라임 관리판</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Cellipse cx=%228%22 cy=%2210%22 rx=%227%22 ry=%225%22 fill=%22%232f9e5f%22/%3E%3C/svg%3E">
+<style>
+:root{--bg:#f6f8f4;--surface:#fff;--ink:#1c2420;--muted:#5b6a62;--line:#dfe6df;--soft:#eef3ec;
+--a:#2f9e5f;--a-soft:#e3f4ea;--b:#2f6fb3;--b-soft:#e4eef9;--c:#c07a12;--c-soft:#fbf0dc;--r:#c0392b;--r-soft:#fbe5e2;
+--shadow:0 1px 2px rgba(20,40,30,.06),0 4px 14px rgba(20,40,30,.05)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121715;--surface:#1a211e;--ink:#e6ece8;--muted:#9baba3;--line:#2b3631;--soft:#202a26;
+--a:#5cc98a;--a-soft:#1d3327;--b:#6fa8e6;--b-soft:#1c2c40;--c:#e3a64c;--c-soft:#3a2d16;--r:#e57368;--r-soft:#3a1f1c;--shadow:none}}
+:root[data-theme="dark"]{--bg:#121715;--surface:#1a211e;--ink:#e6ece8;--muted:#9baba3;--line:#2b3631;--soft:#202a26;
+--a:#5cc98a;--a-soft:#1d3327;--b:#6fa8e6;--b-soft:#1c2c40;--c:#e3a64c;--c-soft:#3a2d16;--r:#e57368;--r-soft:#3a1f1c;--shadow:none}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 "Pretendard","Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;word-break:keep-all;overflow-wrap:anywhere}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+header .brand{font-weight:700}
+nav.tabs{display:flex;gap:4px;flex-wrap:wrap}
+nav.tabs button{border:0;background:none;color:var(--muted);padding:6px 10px;border-radius:8px;cursor:pointer;font:inherit}
+nav.tabs button.on{background:var(--a-soft);color:var(--a);font-weight:700}
+header .right{margin-left:auto;display:flex;gap:8px;align-items:center;color:var(--muted);font-size:12px}
+main{padding:16px;max-width:1500px;margin:0 auto}
+section.view{display:none}section.view.on{display:block}
+h2{font-size:18px;margin:4px 0 12px}h3{font-size:15px;margin:16px 0 8px}
+.muted{color:var(--muted)}.small{font-size:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow)}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.stat{font-size:26px;font-weight:700}
+button,select,input,textarea{font:inherit;color:inherit}
+button.btn{border:1px solid var(--line);background:var(--surface);padding:5px 10px;border-radius:8px;cursor:pointer}
+button.btn:hover{border-color:var(--a)}
+button.pri{background:var(--a);border-color:var(--a);color:#fff}
+button.warn{border-color:var(--r);color:var(--r)}
+button:disabled{opacity:.5;cursor:default}
+input,select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 8px;max-width:100%}
+textarea{width:100%;min-height:80px;resize:vertical}
+label.f{display:block;margin:8px 0 2px;font-size:12px;color:var(--muted)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pill{display:inline-block;padding:0 7px;border-radius:999px;font-size:11px;background:var(--soft);color:var(--muted);margin:1px 2px 1px 0;white-space:nowrap}
+.pill.a{background:var(--a-soft);color:var(--a)}.pill.b{background:var(--b-soft);color:var(--b)}.pill.c{background:var(--c-soft);color:var(--c)}.pill.r{background:var(--r-soft);color:var(--r)}
+.board{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;align-items:flex-start}
+.col{flex:0 0 230px;background:var(--soft);border-radius:10px;padding:8px;min-height:120px}
+.col h4{margin:0 0 6px;font-size:13px;display:flex;justify-content:space-between}
+.col.drop{outline:2px dashed var(--a)}
+.tcard{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 9px;margin-bottom:6px;cursor:pointer}
+.tcard:hover{border-color:var(--a)}
+.tcard .id{font-size:11px;color:var(--b);font-weight:700}
+table{border-collapse:collapse;width:100%;background:var(--surface)}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600;background:var(--soft)}
+tr.click{cursor:pointer}tr.click:hover td{background:var(--soft)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+.plan-layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:12px}
+.plan-layout iframe{width:100%;height:calc(100vh - 150px);border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.plan-side{max-height:calc(100vh - 150px);overflow:auto}
+@media (max-width:900px){.plan-layout{grid-template-columns:1fr}.plan-layout iframe{height:70vh}.plan-side{max-height:none}}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(640px,100%);background:var(--surface);border-left:1px solid var(--line);box-shadow:-6px 0 24px rgba(0,0,0,.12);z-index:20;display:none;flex-direction:column}
+.drawer.on{display:flex}
+.drawer .hd{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:flex-start}
+.drawer .bd{padding:12px 16px;overflow:auto;flex:1}
+.body-md{white-space:pre-wrap;background:var(--soft);border-radius:8px;padding:10px;font-size:13px}
+.comment{border-top:1px solid var(--line);padding:8px 0}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;z-index:30;display:none;max-width:90vw}
+.notice{border-left:3px solid var(--c);background:var(--c-soft);padding:8px 12px;border-radius:6px;margin-bottom:12px}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">🟢 슬라임 관리판</span>
+  <nav class="tabs" id="tabs">
+    <button data-view="dash" class="on">대시보드</button>
+    <button data-view="plan">기획서</button>
+    <button data-view="board">일감</button>
+    <button data-view="bts">버그</button>
+    <button data-view="ai">Claude</button>
+    <button data-view="settings">설정</button>
+  </nav>
+  <div class="right">
+    <span id="who"></span>
+    <span id="conn"></span>
+    <button class="btn" id="reload">새로고침</button>
+  </div>
+</header>
+
+<main>
+  <div class="notice hide" id="demo-notice">GitHub 토큰이 없어 <b>데모 데이터</b>를 보여 줍니다. 실제 이슈를 쓰려면 <a href="#" data-goto="settings">설정</a>에서 토큰을 넣으세요. 데모에서 바꾼 내용은 저장되지 않습니다.</div>
+
+  <!-- 대시보드 -->
+  <section class="view on" id="v-dash">
+    <h2>대시보드</h2>
+    <div class="grid" id="dash-stats"></div>
+    <div class="grid" style="margin-top:12px" id="dash-lists"></div>
+    <h3>단계별 진행 (기획서 34장 일감 기준)</h3>
+    <div class="tablewrap"><table id="dash-phase"></table></div>
+  </section>
+
+  <!-- 기획서 -->
+  <section class="view" id="v-plan">
+    <div class="row" style="margin-bottom:8px">
+      <h2 style="margin:0">기획서</h2>
+      <select id="plan-version"></select>
+      <a id="plan-gh" class="small" target="_blank" rel="noopener">GitHub에서 열기</a>
+    </div>
+    <div class="plan-layout">
+      <iframe id="plan-frame" title="기획서"></iframe>
+      <div class="plan-side">
+        <div class="card">
+          <h3 style="margin-top:0">기획 의견·수정 요청</h3>
+          <label class="f">대상 장</label>
+          <select id="fb-chapter" style="width:100%"></select>
+          <label class="f">내용</label>
+          <textarea id="fb-text" placeholder="무엇이 아쉬운지, 원하는 방향, 레퍼런스 링크"></textarea>
+          <div class="row" style="margin-top:6px">
+            <button class="btn pri" id="fb-submit">이슈로 남기기</button>
+          </div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <h3 style="margin-top:0">기획 일감 ↔ 이슈 (34장)</h3>
+          <p class="small muted">기획서의 일감 표와 GitHub 이슈를 제목의 <code>[ID]</code>로 맞춰 봅니다. 아직 이슈가 없는 일감을 골라 한 번에 만들 수 있습니다 (I-16).</p>
+          <div class="row"><select id="pt-phase"></select><button class="btn" id="pt-create" disabled>선택한 일감 이슈 만들기</button></div>
+          <div id="pt-list" style="margin-top:8px"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 일감 칸반 -->
+  <section class="view" id="v-board">
+    <div class="row" style="margin-bottom:10px">
+      <h2 style="margin:0">일감</h2>
+      <select id="bf-view"></select>
+      <select id="bf-phase"></select>
+      <select id="bf-agent"></select>
+      <select id="bf-owner"></select>
+      <input id="bf-q" placeholder="검색 (ID·제목)">
+      <label class="small"><input type="checkbox" id="bf-closed"> 닫힌 일감 포함</label>
+      <button class="btn pri" id="task-new">새 일감</button>
+    </div>
+    <div class="board" id="board"></div>
+  </section>
+
+  <!-- 버그 -->
+  <section class="view" id="v-bts">
+    <div class="row" style="margin-bottom:10px">
+      <h2 style="margin:0">버그 트래킹</h2>
+      <select id="bt-kind"></select>
+      <select id="bt-status"></select>
+      <select id="bt-pri"></select>
+      <select id="bt-state"><option value="open">열린 것</option><option value="closed">닫힌 것</option><option value="all">전체</option></select>
+      <input id="bt-q" placeholder="검색">
+      <button class="btn pri" id="bug-new">버그 등록</button>
+    </div>
+    <div class="tablewrap"><table id="bt-table"></table></div>
+  </section>
+
+  <!-- Claude -->
+  <section class="view" id="v-ai">
+    <h2>Claude</h2>
+    <div class="grid" style="grid-template-columns:minmax(0,720px)">
+      <div class="card">
+        <h3 style="margin-top:0">GitHub 경유</h3>
+        <p class="small">이 페이지는 이슈·라벨·댓글만 남기고, 실제 처리는 각자의 Claude Code(수동) 또는 셀프호스트 러너(<code>agent-run</code> 라벨, 기획서 26장)가 합니다.</p>
+        <ul class="small">
+          <li>일감 상세에서 <b>Claude에게 맡기기</b> → <code>agent-run</code> 라벨을 붙입니다 (러너가 없으면 라벨만 남음).</li>
+          <li><b>Claude Code 지시문 복사</b> → SlimeAdventure/ 에서 연 Claude Code에 붙여 넣으면 해당 일감을 처리합니다.</li>
+          <li><b>/수정</b> 댓글 → 기획서 23-2 방식 1의 수정 요청.</li>
+        </ul>
+        <label class="f">받은 일감 확인 지시문</label>
+        <div class="row"><code id="inbox-prompt" class="small"></code><button class="btn" id="inbox-copy">복사</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 설정 -->
+  <section class="view" id="v-settings">
+    <h2>설정</h2>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">
+      <div class="card">
+        <h3 style="margin-top:0">GitHub</h3>
+        <label class="f">저장소 (owner/repo)</label><input id="s-repo" style="width:100%">
+        <label class="f">브랜치 (기획서 읽기)</label><input id="s-branch" style="width:100%">
+        <label class="f">개인 토큰 (fine-grained: 이 저장소 Issues 읽기·쓰기 + Contents 읽기)</label>
+        <input id="s-gh" type="password" style="width:100%" autocomplete="off">
+        <label class="f">나는</label><select id="s-me"><option value="">선택 안 함</option><option>Wan</option><option>Dong</option></select>
+        <p class="small muted">토큰은 이 브라우저의 localStorage 에만 저장되고 api.github.com 으로만 보냅니다.</p>
+        <div class="row"><button class="btn pri" id="s-save">저장</button><button class="btn" id="s-labels">필요한 라벨 만들기</button><button class="btn warn" id="s-forget">토큰 지우기</button></div>
+        <div id="s-label-out" class="small muted"></div>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">라벨 규칙</h3>
+        <div id="label-doc" class="small"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- 상세 / 작성 드로어 -->
+<div class="drawer" id="drawer">
+  <div class="hd"><div style="flex:1" id="dr-title"></div><button class="btn" id="dr-close">닫기</button></div>
+  <div class="bd" id="dr-body"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
