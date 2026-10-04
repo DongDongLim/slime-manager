@@ -281,18 +281,20 @@ function renderDash() {
   const t = tasks(), b = bugs();
   const open = t.filter(i => i.state === 'open');
   const count = s => open.filter(i => i.status === s).length;
+  const st = s => [s, count(s), `board:status=${encodeURIComponent(s)}`];
   const stats = [
-    ['열린 일감', open.length], ['작업중', count('작업중')], ['승인대기', count('승인대기')], ['설계리뷰', count('설계리뷰')], ['블록', count('블록')],
-    ['열린 버그', b.filter(i => i.state === 'open').length],
+    ['열린 일감', open.length, 'board:'], st('작업중'), st('승인대기'), st('설계리뷰'), st('블록'),
+    ['열린 버그', b.filter(i => i.state === 'open').length, 'bts:state=open'],
   ];
-  $('#dash-stats').innerHTML = stats.map(([k, v]) => `<div class="card"><div class="muted small">${esc(k)}</div><div class="stat">${v}</div></div>`).join('');
+  $('#dash-stats').innerHTML = stats.map(([k, v, nav]) => `<div class="card link" data-nav="${esc(nav)}" title="${esc(k)} 일감 보기"><div class="muted small">${esc(k)}</div><div class="stat">${v}</div></div>`).join('');
 
   const me = cfg().me;
   const lists = [];
-  const listCard = (title, items) => `<div class="card"><h3 style="margin-top:0">${esc(title)} <span class="muted small">${items.length}</span></h3>${items.length ? items.slice(0, 8).map(i => `<div class="tcard" data-issue="${i.number}"><span class="id">${esc(i.taskId || '#' + i.number)}</span> ${esc(i.shortTitle)}<div>${pills(i)}</div></div>`).join('') : '<p class="muted small">없음</p>'}</div>`;
-  if (me === 'Wan' || !me) lists.push(listCard('Wan 할 일', open.filter(VIEWS.wan.f)));
-  if (me === 'Dong' || !me) { lists.push(listCard('Dong 설계 대기', open.filter(VIEWS.dongDesign.f))); lists.push(listCard('Dong 할 일', open.filter(VIEWS.dong.f))); }
-  lists.push(listCard('P0 버그', b.filter(i => i.state === 'open' && i.priority === 'P0')));
+  const listCard = (title, items, nav) => `<div class="card"><h3 style="margin-top:0" class="dash-h" data-nav="${esc(nav)}" title="일감 탭에서 보기">${esc(title)} <span class="muted small">${items.length} →</span></h3>${items.length ? items.slice(0, 8).map(i => `<div class="tcard" data-issue="${i.number}"><span class="id">${esc(i.taskId || '#' + i.number)}</span> ${esc(i.shortTitle)}<div>${pills(i)}</div></div>`).join('') : '<p class="muted small">없음</p>'}</div>`;
+  if (me === 'Wan' || !me) lists.push(listCard('Wan 할 일', open.filter(VIEWS.wan.f), 'board:view=wan'));
+  if (me === 'Dong' || !me) { lists.push(listCard('Dong 설계 대기', open.filter(VIEWS.dongDesign.f), 'board:view=dongDesign')); lists.push(listCard('Dong 할 일', open.filter(VIEWS.dong.f), 'board:view=dong')); }
+  lists.push(listCard('P0 버그', b.filter(i => i.state === 'open' && i.priority === 'P0'), 'bts:state=open&pri=P0'));
+  renderMatrix(t);
   $('#dash-lists').innerHTML = lists.join('');
 
   const byId = issueByTaskId();
@@ -302,9 +304,55 @@ function renderDash() {
     const linked = pt.filter(x => byId[x.id]);
     const done = pt.filter(x => byId[x.id] && (byId[x.id].state === 'closed' || byId[x.id].status === '완료'));
     const pct = Math.round(done.length / pt.length * 100);
-    return `<tr><td>Phase ${esc(p)}</td><td>${pt.length}</td><td>${linked.length}</td><td>${done.length}</td><td><div style="background:var(--soft);border-radius:4px;height:8px;width:160px"><div style="background:var(--a);height:8px;border-radius:4px;width:${pct * 1.6}px"></div></div> ${pct}%</td></tr>`;
+    return `<tr><td>Phase ${esc(p)}</td><td>${pt.length}</td><td>${linked.length}</td><td>${done.length}</td><td style="white-space:nowrap"><div style="display:inline-block;vertical-align:middle;background:var(--soft);border-radius:4px;height:8px;width:160px"><div style="background:var(--a);height:8px;border-radius:4px;width:${pct * 1.6}px"></div></div> ${pct}%</td></tr>`;
   }).join('');
   $('#dash-phase').innerHTML = `<tr><th>단계</th><th>기획 일감</th><th>이슈 있음</th><th>완료</th><th>진행</th></tr>${rows || '<tr><td colspan="5" class="muted">기획서를 아직 불러오지 못했습니다</td></tr>'}`;
+}
+// 단계 × 상태 표. 닫힌 이슈는 완료로 센다
+function renderMatrix(t) {
+  const stOf = i => (i.state === 'closed' ? '완료' : i.status);
+  const phases = [...PHASES.filter(p => t.some(i => i.phase === p)), ...(t.some(i => !i.phase) ? ['-'] : [])];
+  const cell = (n, nav) => n ? `<td class="n"><a href="#" data-nav="${esc(nav)}">${n}</a></td>` : '<td class="n zero">0</td>';
+  const row = (label, items, ph) => {
+    const done = items.filter(i => stOf(i) === '완료').length;
+    const pct = items.length ? Math.round(done / items.length * 100) : 0;
+    const base = ph ? `phase=${encodeURIComponent(ph)}&` : '';
+    return `<tr><td>${esc(label)}</td>${STATUSES.map(s => cell(items.filter(i => stOf(i) === s).length, `board:${base}status=${encodeURIComponent(s)}${s === '완료' ? '&closed=1' : ''}`)).join('')}`
+      + `${cell(items.length, `board:${base}closed=1`)}<td class="n">${pct}%</td></tr>`;
+  };
+  const body = phases.map(p => row(p === '-' ? 'Phase 없음' : `Phase ${p}`, t.filter(i => (i.phase || '-') === p), p)).join('');
+  $('#dash-matrix').innerHTML = `<tr><th>단계</th>${STATUSES.map(s => `<th class="n">${esc(s)}</th>`).join('')}<th class="n">합계</th><th class="n">완료율</th></tr>`
+    + (body ? body + row('전체', t, '').replace('<td>전체</td>', '<td><b>전체</b></td>') : `<tr><td colspan="${STATUSES.length + 3}" class="muted">일감이 없습니다</td></tr>`);
+}
+
+// 칸반 높이를 남은 화면 높이에 맞춘다 (가로 스크롤바가 화면 아래쪽 안에 보이도록)
+function fitBoard() {
+  const b = $('#board');
+  if (!b.offsetParent) return;
+  const top = b.getBoundingClientRect().top + window.scrollY;
+  b.style.height = `${Math.max(320, window.innerHeight - top - 16)}px`;
+}
+window.addEventListener('resize', fitBoard);
+
+// 대시보드에서 누른 곳으로 이동: "board:status=작업중", "bts:state=open&pri=P0"
+function navTo(spec) {
+  const [view, qs = ''] = spec.split(':');
+  const p = new URLSearchParams(qs);
+  if (view === 'board') {
+    ['#bf-phase', '#bf-agent', '#bf-owner', '#bf-status', '#bf-q'].forEach(s => { $(s).value = ''; });
+    $('#bf-view').value = p.get('view') || 'all';
+    if (p.get('phase')) $('#bf-phase').value = p.get('phase');
+    if (p.get('status')) $('#bf-status').value = p.get('status');
+    $('#bf-closed').checked = p.get('closed') === '1';
+    renderBoard();
+  } else if (view === 'bts') {
+    ['#bt-kind', '#bt-status', '#bt-pri', '#bt-q'].forEach(s => { $(s).value = ''; });
+    $('#bt-state').value = p.get('state') || 'open';
+    if (p.get('pri')) $('#bt-pri').value = p.get('pri');
+    renderBts();
+  }
+  switchView(view);
+  window.scrollTo(0, 0);
 }
 function issueByTaskId() {
   const m = {};
@@ -373,19 +421,33 @@ function planTaskToIssue(t) {
 function boardFilters() {
   const keep = (sel, html) => { const v = $(sel).value; $(sel).innerHTML = html; if (v) $(sel).value = v; };
   keep('#bf-view', Object.entries(VIEWS).map(([k, v]) => opt(k, v.name)).join(''));
-  keep('#bf-phase', opt('', '모든 Phase') + PHASES.map(p => opt(p, `Phase ${p}`)).join(''));
+  keep('#bf-phase', opt('', '모든 Phase') + PHASES.map(p => opt(p, `Phase ${p}`)).join('') + opt('-', 'Phase 없음'));
+  keep('#bf-status', opt('', '모든 상태') + STATUSES.map(s => opt(s)).join(''));
   keep('#bf-agent', opt('', '모든 AI') + AGENTS.map(a => opt(a)).join(''));
   keep('#bf-owner', opt('', '모든 Owner') + PEOPLE.map(p => opt(p)).join(''));
 }
 function renderBoard() {
   const v = VIEWS[$('#bf-view').value] || VIEWS.all;
   const ph = $('#bf-phase').value, ag = $('#bf-agent').value, ow = $('#bf-owner').value, q = $('#bf-q').value.trim().toLowerCase();
+  const fs = $('#bf-status').value, asTable = $('#bf-mode').value === 'table';
   const withClosed = $('#bf-closed').checked;
+  const stOf = i => (i.state === 'closed' ? '완료' : i.status);
   const list = tasks().filter(i => (withClosed || i.state === 'open') && v.f(i)
-    && (!ph || i.phase === ph) && (!ag || i.agents.includes(ag)) && (!ow || i.owner === ow)
-    && (!q || i.title.toLowerCase().includes(q)));
-  $('#board').innerHTML = STATUSES.map(s => {
-    const items = list.filter(i => i.status === s);
+    && (!ph || (ph === '-' ? !i.phase : i.phase === ph)) && (!ag || i.agents.includes(ag)) && (!ow || i.owner === ow)
+    && (!fs || stOf(i) === fs) && (!q || i.title.toLowerCase().includes(q)));
+  $('#board').classList.toggle('hide', asTable);
+  $('#board-table-wrap').classList.toggle('hide', !asTable);
+  if (asTable) {
+    const ord = i => [PHASES.indexOf(i.phase) < 0 ? 99 : PHASES.indexOf(i.phase), STATUSES.indexOf(stOf(i))];
+    const sorted = [...list].sort((a, b) => { const x = ord(a), y = ord(b); return x[0] - y[0] || x[1] - y[1] || (a.taskId || '').localeCompare(b.taskId || '', undefined, { numeric: true }); });
+    $('#board-table').innerHTML = '<tr><th>ID</th><th>제목</th><th>Phase</th><th>상태</th><th>AI</th><th>Owner</th><th>체크</th><th>우선</th><th>갱신</th></tr>'
+      + (sorted.map(i => `<tr class="click" data-issue="${i.number}"><td><b>${esc(i.taskId || '#' + i.number)}</b></td><td>${esc(i.shortTitle)}</td><td>${esc(i.phase)}</td><td>${esc(stOf(i))}</td><td>${esc(i.agents.join(', '))}</td><td>${esc(i.owner)}</td><td>${esc(i.checker)}</td><td>${esc(i.priority)}</td><td class="small muted">${esc((i.updated || '').slice(0, 10))}</td></tr>`).join('')
+        || '<tr><td colspan="9" class="muted">해당하는 일감이 없습니다</td></tr>');
+    return;
+  }
+  $('#board').classList.toggle('single', !!fs);
+  $('#board').innerHTML = STATUSES.filter(s => !fs || s === fs).map(s => {
+    const items = list.filter(i => stOf(i) === s);
     return `<div class="col" data-status="${esc(s)}"><h4><span>${esc(s)}</span><span class="muted">${items.length}</span></h4>${items.map(i => `<div class="tcard" draggable="true" data-issue="${i.number}"><div class="id">${esc(i.taskId || '#' + i.number)}</div>${esc(i.shortTitle)}<div>${pills(i)}</div></div>`).join('')}</div>`;
   }).join('');
 }
@@ -527,6 +589,8 @@ function bugBody() {
 function switchView(v) {
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
   document.querySelectorAll('section.view').forEach(s => s.classList.toggle('on', s.id === `v-${v}`));
+  document.body.classList.toggle('wide', v === 'board'); // 칸반은 화면 폭을 다 쓴다
+  if (v === 'board') fitBoard();
   try { history.replaceState(null, '', `#${v}`); } catch { /* file:// */ }
 }
 
@@ -535,6 +599,8 @@ function bind() {
   document.addEventListener('click', async e => {
     const go = e.target.closest('[data-goto]');
     if (go) { e.preventDefault(); switchView(go.dataset.goto); return; }
+    const nav = !e.target.closest('[data-issue]') && e.target.closest('[data-nav]');
+    if (nav) { e.preventDefault(); navTo(nav.dataset.nav); return; }
     const card = e.target.closest('[data-issue]');
     if (card && !e.target.closest('#drawer')) { e.preventDefault(); showIssue(card.dataset.issue); }
   });
@@ -543,7 +609,7 @@ function bind() {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
 
   // 칸반 필터·드래그
-  ['#bf-view', '#bf-phase', '#bf-agent', '#bf-owner', '#bf-closed'].forEach(s => $(s).addEventListener('change', renderBoard));
+  ['#bf-view', '#bf-phase', '#bf-agent', '#bf-owner', '#bf-status', '#bf-mode', '#bf-closed'].forEach(s => $(s).addEventListener('change', renderBoard));
   $('#bf-q').addEventListener('input', renderBoard);
   const board = $('#board');
   board.addEventListener('dragstart', e => { const c = e.target.closest('.tcard'); if (c) e.dataTransfer.setData('text/plain', c.dataset.issue); });

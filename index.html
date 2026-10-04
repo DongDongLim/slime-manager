@@ -22,6 +22,7 @@ nav.tabs button{border:0;background:none;color:var(--muted);padding:6px 10px;bor
 nav.tabs button.on{background:var(--a-soft);color:var(--a);font-weight:700}
 header .right{margin-left:auto;display:flex;gap:8px;align-items:center;color:var(--muted);font-size:12px}
 main{padding:16px;max-width:1500px;margin:0 auto}
+body.wide main{max-width:none}
 section.view{display:none}section.view.on{display:block}
 h2{font-size:18px;margin:4px 0 12px}h3{font-size:15px;margin:16px 0 8px}
 .muted{color:var(--muted)}.small{font-size:12px}
@@ -40,8 +41,12 @@ label.f{display:block;margin:8px 0 2px;font-size:12px;color:var(--muted)}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .pill{display:inline-block;padding:0 7px;border-radius:999px;font-size:11px;background:var(--soft);color:var(--muted);margin:1px 2px 1px 0;white-space:nowrap}
 .pill.a{background:var(--a-soft);color:var(--a)}.pill.b{background:var(--b-soft);color:var(--b)}.pill.c{background:var(--c-soft);color:var(--c)}.pill.r{background:var(--r-soft);color:var(--r)}
-.board{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;align-items:flex-start}
-.col{flex:0 0 230px;background:var(--soft);border-radius:10px;padding:8px;min-height:120px}
+/* 칸반: 화면 높이에 맞추고 열 안에서 세로 스크롤 → 가로 스크롤바가 항상 화면 안에 보인다 */
+.board{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;align-items:stretch;height:calc(100vh - 170px);min-height:320px}
+.col{flex:1 0 190px;background:var(--soft);border-radius:10px;padding:8px;overflow-y:auto}
+.board.single .col{flex:0 1 480px}
+.card.link,.dash-h{cursor:pointer}.card.link:hover{border-color:var(--a)}.dash-h:hover{color:var(--a)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}td.n a{color:inherit;text-decoration:none;display:block}td.n a:hover{color:var(--a)}td.zero{color:var(--line)}
 .col h4{margin:0 0 6px;font-size:13px;display:flex;justify-content:space-between}
 .col.drop{outline:2px dashed var(--a)}
 .tcard{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 9px;margin-bottom:6px;cursor:pointer}
@@ -95,6 +100,8 @@ tr.click{cursor:pointer}tr.click:hover td{background:var(--soft)}
     <h2>대시보드</h2>
     <div class="grid" id="dash-stats"></div>
     <div class="grid" style="margin-top:12px" id="dash-lists"></div>
+    <h3>전체 진행 (단계 × 상태, 숫자를 누르면 일감으로 이동)</h3>
+    <div class="tablewrap"><table id="dash-matrix"></table></div>
     <h3>단계별 진행 (기획서 34장 일감 기준)</h3>
     <div class="tablewrap"><table id="dash-phase"></table></div>
   </section>
@@ -137,11 +144,14 @@ tr.click{cursor:pointer}tr.click:hover td{background:var(--soft)}
       <select id="bf-phase"></select>
       <select id="bf-agent"></select>
       <select id="bf-owner"></select>
+      <select id="bf-status"></select>
+      <select id="bf-mode"><option value="board">칸반</option><option value="table">표</option></select>
       <input id="bf-q" placeholder="검색 (ID·제목)">
       <label class="small"><input type="checkbox" id="bf-closed"> 닫힌 일감 포함</label>
       <button class="btn pri" id="task-new">새 일감</button>
     </div>
     <div class="board" id="board"></div>
+    <div class="tablewrap hide" id="board-table-wrap"><table id="board-table"></table></div>
   </section>
 
   <!-- 버그 -->
