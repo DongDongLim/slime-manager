@@ -65,6 +65,9 @@ tr.click{cursor:pointer}tr.click:hover td{background:var(--soft)}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;z-index:30;display:none;max-width:90vw}
 .notice{border-left:3px solid var(--c);background:var(--c-soft);padding:8px 12px;border-radius:6px;margin-bottom:12px}
 .hide{display:none!important}
+.guide{margin:10px 0;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--soft)}
+.guide summary{cursor:pointer;font-weight:600}
+.guide ol{padding-left:20px;margin:6px 0}
 </style>
 </head>
 <body>
@@ -86,7 +89,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:var(--soft)}
 </header>
 
 <main>
-  <div class="notice hide" id="demo-notice">GitHub 토큰이 없어 <b>데모 데이터</b>를 보여 줍니다. 실제 이슈를 쓰려면 <a href="#" data-goto="settings">설정</a>에서 토큰을 넣으세요. 데모에서 바꾼 내용은 저장되지 않습니다.</div>
+  <div class="notice hide" id="demo-notice">GitHub 토큰이 없어 <b>데모 데이터</b>를 보여 줍니다. 실제 이슈를 쓰려면 <a href="#" data-goto="settings">설정</a>에서 토큰을 넣으세요 (발급 방법도 거기 있습니다). 데모에서 바꾼 내용은 저장되지 않습니다.</div>
 
   <!-- 대시보드 -->
   <section class="view on" id="v-dash">
@@ -182,10 +185,28 @@ tr.click{cursor:pointer}tr.click:hover td{background:var(--soft)}
         <h3 style="margin-top:0">GitHub</h3>
         <label class="f">저장소 (owner/repo)</label><input id="s-repo" style="width:100%">
         <label class="f">브랜치 (기획서 읽기)</label><input id="s-branch" style="width:100%">
-        <label class="f">개인 토큰 (fine-grained: 이 저장소 Issues 읽기·쓰기 + Contents 읽기)</label>
+        <label class="f">GitHub 토큰 (발급 방법은 아래)</label>
         <input id="s-gh" type="password" style="width:100%" autocomplete="off">
         <label class="f">나는</label><select id="s-me"><option value="">선택 안 함</option><option>Wan</option><option>Dong</option></select>
         <p class="small muted">토큰은 이 브라우저의 localStorage 에만 저장되고 api.github.com 으로만 보냅니다.</p>
+        <details class="guide" id="token-guide">
+          <summary>토큰 발급 방법</summary>
+          <p class="small"><b>저장소 주인 (Dong)</b>: 이 저장소에만 쓰는 fine-grained 토큰</p>
+          <ol class="small">
+            <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub 토큰 만들기 화면</a>을 엽니다.</li>
+            <li>Token name 에 <code>slime-manager</code>, Expiration 은 원하는 기간을 고릅니다.</li>
+            <li>Resource owner 는 <code>DongDongLim</code>, Repository access 는 <b>Only select repositories</b> → <code>GameMaker</code>.</li>
+            <li>Permissions → Repository permissions 에서 <b>Issues: Read and write</b>, <b>Contents: Read-only</b> 로 바꿉니다.</li>
+            <li><b>Generate token</b> 을 누르고, 나온 토큰을 복사해 위 칸에 붙여 넣은 뒤 <b>저장</b>을 누릅니다.</li>
+          </ol>
+          <p class="small"><b>협업자 (Wan)</b>: 남의 개인 저장소에는 fine-grained 토큰을 쓸 수 없어 classic 토큰을 씁니다.</p>
+          <ol class="small">
+            <li>먼저 Dong 이 저장소 Settings → Collaborators 에서 Wan 을 초대하고, Wan 이 초대를 수락합니다.</li>
+            <li><a href="https://github.com/settings/tokens/new?scopes=repo&amp;description=slime-manager" target="_blank" rel="noopener">classic 토큰 만들기 화면</a>을 엽니다 (repo 권한이 미리 체크되어 있습니다).</li>
+            <li>Expiration 을 고르고 <b>Generate token</b> → 복사해서 위 칸에 붙여 넣고 <b>저장</b>.</li>
+          </ol>
+          <p class="small muted">토큰은 비밀번호와 같습니다. 다른 사람에게 보내거나 공용 PC 에 저장하지 마세요. classic 토큰은 Wan 이 접근할 수 있는 모든 저장소에 쓸 수 있으니 만료 기간을 짧게 두세요.</p>
+        </details>
         <div class="row"><button class="btn pri" id="s-save">저장</button><button class="btn" id="s-labels">필요한 라벨 만들기</button><button class="btn warn" id="s-forget">토큰 지우기</button></div>
         <div id="s-label-out" class="small muted"></div>
       </div>

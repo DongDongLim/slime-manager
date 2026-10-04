@@ -645,6 +645,7 @@ function bind() {
 
 function fillSettings() {
   const c = cfg();
+  $('#token-guide').open = !c.gh; // 토큰이 없으면 발급 안내를 펼쳐 둔다
   $('#s-repo').value = c.repo; $('#s-branch').value = c.branch; $('#s-gh').value = c.gh; $('#s-me').value = c.me;
   $('#label-doc').innerHTML = `<p>모든 일감·버그에 <code>slime</code> 라벨이 붙습니다 (23-1). 기획서 25-2 의 Projects 필드는 Project 가 생기기 전까지 아래 라벨로 대신합니다.</p>
     <table><tr><th>필드</th><th>라벨</th></tr>
