@@ -59,7 +59,7 @@ const cfg = () => ({
 const PLAN_DIR = 'SlimeAdventure/기획';
 
 // ── 상태 ────────────────────────────────────────────────────────────
-const S = { issues: [], demo: false, planVersions: [], planSource: '', planTasks: [], current: null };
+const S = { issues: [], prs: [], demo: false, planVersions: [], planSource: '', planTasks: [], current: null };
 
 // ── 유틸 ────────────────────────────────────────────────────────────
 const $ = s => document.querySelector(s);
@@ -97,6 +97,12 @@ function explainGhError(status, method, path, msg) {
   const raw = `(GitHub ${status} ${msg})`;
   if (status === 429 || /rate limit/i.test(msg)) return `GitHub 이 요청이 너무 잦다며 잠시 막았습니다. 1~2분 뒤 다시 시도하세요. 이미 만든 이슈는 그대로 있습니다. ${raw}`;
   if (status === 401) return `토큰이 맞지 않습니다. 설정에서 토큰을 다시 붙여 넣거나 새로 만드세요. ${raw}`;
+  const isPr = /\/pulls(\/|\?|$)/.test(path);
+  if (status === 405 && /\/merge$/.test(path)) return `지금은 병합할 수 없는 상태입니다 (충돌, 초안, 검사 대기 등). GitHub 에서 PR 을 확인하세요. ${raw}`;
+  if (status === 409 && /\/merge$/.test(path)) return `확인한 뒤에 PR 에 새 커밋이 올라왔습니다. 새로고침해서 바뀐 내용을 본 뒤 다시 병합하세요. ${raw}`;
+  if (status === 422 && isPr && /own pull request/i.test(msg)) return `자기가 올린 PR 은 승인할 수 없습니다 (GitHub 규칙). 다른 사람이 승인해야 합니다. ${raw}`;
+  if (status === 403 && method !== 'GET' && isPr) return `이 토큰으로는 PR 을 승인·병합할 수 없습니다. 토큰의 Pull requests 를 Read and write 로, 병합하려면 Contents 도 Read and write 로 바꾸세요 (발급 안내 5단계). ${raw}`;
+  if ((status === 403 || status === 404) && isPr) return `이 토큰으로는 PR 을 읽을 수 없습니다. 토큰에 Pull requests 권한(Read and write)을 더하세요 (발급 안내 5단계). ${raw}`;
   if (status === 404 && /^\/repos\/[^/]+\/[^/]+(\/(issues|labels|contents)|$)/.test(path.split('?')[0])) return `저장소가 보이지 않습니다. 토큰에 저장소가 선택됐는지(주인), 초대를 수락했는지(협업자) 확인하세요. ${raw}`;
   if (status === 403 && method !== 'GET') return `이 토큰에는 쓰기 권한이 없습니다. 토큰의 Issues 권한을 Read and write 로 바꾸세요. ${raw}`;
   if (status === 403) return `이 토큰으로는 읽을 수 없습니다. 토큰 권한(Issues, Contents)을 확인하세요. ${raw}`;
@@ -173,6 +179,48 @@ function demoIssues() {
   ];
 }
 
+// ── PR 해석 ─────────────────────────────────────────────────────────
+// slime-agent-run 이 올리는 PR: design/<ID> = 설계서 PR (본문 "설계서 대상: #이슈"), task/<ID> = 구현 PR ("Closes #이슈") (23-3, 26-4)
+function parsePR(p) {
+  const ref = p.head?.ref || '';
+  const kind = /^design\//.test(ref) ? 'design' : /^task\//.test(ref) ? 'task' : 'other';
+  const body = p.body || '';
+  const link = body.match(/(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|설계서 대상:)\s*#(\d+)/i) || body.match(/#(\d+)/);
+  return {
+    number: p.number,
+    title: p.title,
+    url: p.html_url,
+    state: p.merged_at ? 'merged' : p.state,
+    draft: !!p.draft,
+    ref,
+    kind,
+    issue: link ? Number(link[1]) : null,
+    user: p.user?.login || '',
+    updated: p.updated_at,
+    sha: p.head?.sha || '',
+    reviews: null, // 열린 PR 만 따로 불러온다
+  };
+}
+// 사람마다 마지막 승인·변경 요청만 센다 (GitHub 이 보여 주는 방식과 같음)
+function reviewSummary(reviews) {
+  const last = {};
+  (reviews || []).forEach(r => { if (['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'].includes(r.state)) last[r.user?.login || '?'] = r.state; });
+  const by = st => Object.keys(last).filter(u => last[u] === st);
+  return { approved: by('APPROVED'), changes: by('CHANGES_REQUESTED') };
+}
+const PR_KIND = { design: '설계서', task: '구현', other: '기타' };
+const PR_STATE = { open: '열림', merged: '병합됨', closed: '닫힘' };
+const isSlimePR = pr => pr.kind !== 'other' || S.issues.some(i => i.number === pr.issue);
+
+function demoPRs() {
+  const mk = (n, title, ref, issue, reviews, state = 'open') => ({ ...parsePR({ number: 100 + n, title, html_url: '#', state, head: { ref, sha: 'demo' }, body: `${ref.startsWith('design/') ? '설계서 대상:' : 'Closes'} #${issue}`, user: { login: 'github-actions[bot]' }, updated_at: '2026-10-04T00:00:00Z' }), reviews });
+  // 예시 데이터: 실제 PR 이 아니다
+  return [
+    mk(1, '[EX-02] 설계서: 예시 설계 리뷰 대기', 'design/EX-02', 2, []),
+    mk(2, '[EX-03] 예시 구현 (승인됨)', 'task/EX-03', 3, [{ state: 'APPROVED', user: { login: 'wankyu9704' } }]),
+  ];
+}
+
 // ── 데이터 불러오기 ─────────────────────────────────────────────────
 async function loadIssues() {
   const c = cfg();
@@ -180,6 +228,17 @@ async function loadIssues() {
   S.demo = false;
   const raw = await ghAll(`/repos/${c.repo}/issues?labels=${encodeURIComponent(L.slime)}&state=all`);
   S.issues = raw.filter(i => !i.pull_request).map(parseIssue);
+}
+
+async function loadPRs() {
+  const c = cfg();
+  if (!c.gh) { S.prs = demoPRs(); return; }
+  const raw = await gh(`/repos/${c.repo}/pulls?state=all&sort=updated&direction=desc&per_page=100`);
+  S.prs = raw.map(parsePR);
+  // 승인 수는 목록 API 에 없어서 열린 PR 만 따로 읽는다
+  await Promise.all(S.prs.filter(p => p.state === 'open').map(async p => {
+    try { p.reviews = await gh(`/repos/${c.repo}/pulls/${p.number}/reviews?per_page=100`); } catch { p.reviews = null; }
+  }));
 }
 
 async function loadPlanVersions() {
@@ -285,6 +344,7 @@ function renderDash() {
   const stats = [
     ['열린 일감', open.length, 'board:'], st('작업중'), st('승인대기'), st('설계리뷰'), st('블록'),
     ['열린 버그', b.filter(i => i.state === 'open').length, 'bts:state=open'],
+    ['열린 PR', S.prs.filter(p => p.state === 'open' && isSlimePR(p)).length, 'prs:'],
   ];
   $('#dash-stats').innerHTML = stats.map(([k, v, nav]) => `<div class="card link" data-nav="${esc(nav)}" title="${esc(k)} 일감 보기"><div class="muted small">${esc(k)}</div><div class="stat">${v}</div></div>`).join('');
 
@@ -350,6 +410,9 @@ function navTo(spec) {
     $('#bt-state').value = p.get('state') || 'open';
     if (p.get('pri')) $('#bt-pri').value = p.get('pri');
     renderBts();
+  } else if (view === 'prs') {
+    $('#pr-state').value = 'open';
+    renderPRs();
   }
   switchView(view);
   window.scrollTo(0, 0);
@@ -469,8 +532,29 @@ function renderBts() {
       || '<tr><td colspan="7" class="muted">해당하는 버그가 없습니다</td></tr>');
 }
 
+// ── 렌더: PR ────────────────────────────────────────────────────────
+function prReviewCell(pr) {
+  if (pr.state !== 'open') return '';
+  if (!pr.reviews) return '<span class="muted">-</span>';
+  const r = reviewSummary(pr.reviews);
+  const out = [];
+  if (r.approved.length) out.push(`<span class="pill a">승인 ${r.approved.length}</span>`);
+  if (r.changes.length) out.push(`<span class="pill r">변경 요청 ${r.changes.length}</span>`);
+  return out.join('') || '<span class="pill c">리뷰 대기</span>';
+}
+function renderPRs() {
+  const st = $('#pr-state').value, all = $('#pr-all').checked;
+  const list = S.prs.filter(p => (st === 'all' || p.state === st) && (all || isSlimePR(p)));
+  $('#pr-table').innerHTML = '<tr><th>#</th><th>제목</th><th>종류</th><th>일감</th><th>리뷰</th><th>상태</th><th>갱신</th></tr>'
+    + (list.map(p => {
+      const iss = S.issues.find(i => i.number === p.issue);
+      return `<tr class="click" data-pr="${p.number}"><td>${p.number}</td><td>${esc(p.title)}${p.draft ? ' <span class="pill">초안</span>' : ''}</td><td>${esc(PR_KIND[p.kind])}</td>`
+        + `<td class="small">${p.issue ? `#${p.issue}${iss ? ` ${esc(iss.status)}` : ''}` : ''}</td><td>${prReviewCell(p)}</td><td>${esc(PR_STATE[p.state])}</td><td class="small muted">${esc((p.updated || '').slice(0, 10))}</td></tr>`;
+    }).join('') || '<tr><td colspan="7" class="muted">해당하는 PR 이 없습니다</td></tr>');
+}
+
 function renderAll() {
-  renderHeader(); renderDash(); boardFilters(); renderBoard(); btsFilters(); renderBts(); renderPlanTasks();
+  renderHeader(); renderDash(); boardFilters(); renderBoard(); btsFilters(); renderBts(); renderPRs(); renderPlanTasks();
 }
 
 // ── 쓰기 ────────────────────────────────────────────────────────────
@@ -500,9 +584,10 @@ async function createIssue({ title, body, labels }) {
 
 // ── 상세 드로어 ─────────────────────────────────────────────────────
 function openDrawer(titleHtml, bodyHtml) {
+  S.currentPR = null;
   $('#dr-title').innerHTML = titleHtml; $('#dr-body').innerHTML = bodyHtml; $('#drawer').classList.add('on');
 }
-function closeDrawer() { $('#drawer').classList.remove('on'); S.current = null; }
+function closeDrawer() { $('#drawer').classList.remove('on'); S.current = null; S.currentPR = null; }
 
 function agentPrompt(i) {
   return `pm, GitHub 이슈 #${i.number} ${i.title} 를 gh 로 읽고 기획서 20장 라이프사이클대로 처리해. 설계가 필요하면 설계서 PR 까지만 하고 Dong 승인을 기다려.`;
@@ -541,6 +626,95 @@ async function showIssue(n) {
       $('#d-comments').innerHTML = cs.length ? cs.map(c => `<div class="comment"><b>${esc(c.user?.login)}</b> <span class="muted">${esc(c.created_at.slice(0, 16).replace('T', ' '))}</span><div style="white-space:pre-wrap;color:var(--ink)">${esc(c.body)}</div></div>`).join('') : '없음';
     } catch (e) { $('#d-comments').textContent = e.message; }
   }
+}
+
+// PR 상세: 바뀐 파일·리뷰·댓글을 보고 승인·변경 요청·병합한다.
+// 병합 조건 (18-2, 20장): 사람 1명 이상 승인 + 변경 요청 없음 + 초안 아님 + 충돌 없음. 브랜치 보호를 못 써서 이 페이지가 지킨다.
+async function showPR(n) {
+  const pr = S.prs.find(x => x.number === Number(n));
+  if (!pr) return;
+  S.current = null;
+  const iss = S.issues.find(i => i.number === pr.issue);
+  const me = cfg().me;
+  openDrawer(
+    `<div class="small muted"><a href="${esc(pr.url)}" target="_blank" rel="noopener">PR #${pr.number}</a> · ${esc(PR_STATE[pr.state])} · ${esc(PR_KIND[pr.kind])} · <code>${esc(pr.ref)}</code></div><b>${esc(pr.title)}</b>`
+      + `<div class="small">${pr.issue ? `일감 <a href="${esc(iss ? iss.url : '#')}" target="_blank" rel="noopener">#${pr.issue}</a> ${iss ? esc(iss.shortTitle) + ' · ' + esc(iss.status) : ''}` : '연결된 일감 없음'}</div>`,
+    `<div class="row"><a class="btn" href="${esc(pr.url)}/files" target="_blank" rel="noopener" style="text-decoration:none">GitHub 에서 바뀐 내용 보기</a></div>
+    <h3>병합</h3><div id="p-merge" class="small muted">${S.demo ? '데모 모드' : '확인하는 중…'}</div>
+    ${pr.state === 'open' ? `<h3>리뷰</h3>
+    <textarea id="p-cmt" placeholder="리뷰 의견 (변경 요청은 필수, 승인은 선택)"></textarea>
+    <div class="row" style="margin-top:6px"><button class="btn pri" id="p-approve">승인</button><button class="btn warn" id="p-changes">변경 요청</button><button class="btn" id="p-comment">댓글만</button></div>` : ''}
+    <h3>바뀐 파일</h3><div id="p-files" class="small muted">${S.demo ? '데모 모드' : '불러오는 중…'}</div>
+    <h3>리뷰 기록 · 댓글</h3><div id="p-talk" class="small muted">${S.demo ? '데모 모드' : '불러오는 중…'}</div>`);
+  S.currentPR = pr;
+  if (S.demo) { renderMergeBox(pr, { mergeable: true }); return; }
+  const c = cfg();
+  try {
+    const [detail, files, reviews, comments] = await Promise.all([
+      gh(`/repos/${c.repo}/pulls/${pr.number}`),
+      gh(`/repos/${c.repo}/pulls/${pr.number}/files?per_page=100`),
+      gh(`/repos/${c.repo}/pulls/${pr.number}/reviews?per_page=100`),
+      gh(`/repos/${c.repo}/issues/${pr.number}/comments?per_page=100`),
+    ]);
+    if (S.currentPR !== pr) return;
+    Object.assign(pr, parsePR(detail), { reviews });
+    $('#p-files').innerHTML = files.length ? `<div class="tablewrap"><table>${files.map(f => `<tr><td>${esc(f.filename)}</td><td class="n" style="white-space:nowrap"><span style="color:var(--a)">+${f.additions}</span> <span style="color:var(--r)">-${f.deletions}</span></td></tr>`).join('')}</table></div>` : '없음';
+    const talk = [
+      ...reviews.filter(r => r.state !== 'PENDING').map(r => ({ at: r.submitted_at || '', who: r.user?.login, tag: { APPROVED: '승인', CHANGES_REQUESTED: '변경 요청', COMMENTED: '리뷰 의견', DISMISSED: '취소됨' }[r.state] || r.state, body: r.body })),
+      ...comments.map(x => ({ at: x.created_at, who: x.user?.login, tag: '', body: x.body })),
+    ].sort((a, b) => a.at.localeCompare(b.at));
+    $('#p-talk').innerHTML = talk.length ? talk.map(t => `<div class="comment"><b>${esc(t.who)}</b> ${t.tag ? `<span class="pill ${t.tag === '승인' ? 'a' : t.tag === '변경 요청' ? 'r' : ''}">${esc(t.tag)}</span>` : ''} <span class="muted">${esc(t.at.slice(0, 16).replace('T', ' '))}</span>${t.body ? `<div style="white-space:pre-wrap;color:var(--ink)">${esc(t.body)}</div>` : ''}</div>`).join('') : '없음';
+    renderMergeBox(pr, detail, me);
+    renderPRs();
+  } catch (e) { $('#p-merge').textContent = e.message; }
+}
+function mergeBlockers(pr, detail) {
+  const r = reviewSummary(pr.reviews);
+  const why = [];
+  if (pr.draft) why.push('초안 PR 입니다');
+  if (!r.approved.length) why.push('사람 1명 이상의 승인이 필요합니다 (18-2)');
+  if (r.changes.length) why.push(`변경 요청이 남아 있습니다: ${r.changes.join(', ')}`);
+  if (detail.mergeable === false) why.push('main 과 충돌합니다. 충돌을 먼저 풀어야 합니다');
+  if (detail.mergeable == null && pr.state === 'open') why.push('GitHub 이 병합 가능 여부를 계산 중입니다. 잠시 뒤 다시 여세요');
+  return { why, r };
+}
+function renderMergeBox(pr, detail, me = cfg().me) {
+  if (pr.state !== 'open') { $('#p-merge').textContent = `${PR_STATE[pr.state]} PR 입니다.`; return; }
+  const { why, r } = mergeBlockers(pr, detail);
+  const design = pr.kind === 'design' && pr.issue;
+  const designOpt = design ? `<label class="small" style="display:block;margin-top:6px"><input type="checkbox" id="p-approve-design"${me === 'Dong' ? ' checked' : ' disabled'}> 병합한 뒤 일감 #${pr.issue} 에 <code>design-approved</code> 라벨 붙이기 (구현 자동 시작, 21-4)${me === 'Dong' ? '' : ' · 설계 승인 라벨은 Dong 만 붙입니다'}</label>` : '';
+  const doneOpt = pr.kind === 'task' && pr.issue ? `<div class="small muted" style="margin-top:4px">병합하면 일감 #${pr.issue} 은 닫히고 상태가 완료로 바뀝니다.</div>` : '';
+  $('#p-merge').innerHTML = (r.approved.length ? `<div>승인: ${r.approved.map(esc).join(', ')}</div>` : '')
+    + (why.length ? `<ul style="margin:4px 0">${why.map(w => `<li>${esc(w)}</li>`).join('')}</ul>` : '<div style="color:var(--a)">병합할 수 있습니다.</div>')
+    + designOpt + doneOpt
+    + `<div class="row" style="margin-top:6px"><button class="btn pri" id="p-merge-btn"${why.length ? ' disabled' : ''}>main 에 병합</button></div>`;
+}
+async function reviewPR(event) {
+  const pr = S.currentPR;
+  const body = $('#p-cmt').value.trim();
+  if (event === 'REQUEST_CHANGES' && !body) { toast('변경 요청은 이유를 적어야 합니다'); return; }
+  if (event === 'COMMENT' && !body) { toast('의견을 적어 주세요'); return; }
+  if (demoGuard()) return;
+  await gh(`/repos/${cfg().repo}/pulls/${pr.number}/reviews`, { method: 'POST', body: { event, body, commit_id: pr.sha || undefined } });
+  toast({ APPROVE: '승인했습니다', REQUEST_CHANGES: '변경 요청을 남겼습니다', COMMENT: '의견을 남겼습니다' }[event]);
+  showPR(pr.number);
+}
+async function mergePR() {
+  const pr = S.currentPR;
+  if (demoGuard()) return;
+  const withLabel = $('#p-approve-design')?.checked;
+  const msg = `PR #${pr.number} 을 main 에 병합합니다.${withLabel ? `\n병합 뒤 #${pr.issue} 에 design-approved 를 붙여 구현을 시작합니다.` : ''}\n되돌리려면 GitHub 에서 Revert 해야 합니다. 계속할까요?`;
+  if (!confirm(msg)) return;
+  const c = cfg();
+  // sha 를 같이 보내 확인한 뒤에 올라온 커밋은 병합하지 않는다 (409)
+  await gh(`/repos/${c.repo}/pulls/${pr.number}/merge`, { method: 'PUT', body: { merge_method: 'merge', sha: pr.sha } });
+  const iss = S.issues.find(i => i.number === pr.issue);
+  if (iss && withLabel && !iss.labels.includes('design-approved')) await setLabels(iss, [...iss.labels, 'design-approved']);
+  if (iss && pr.kind === 'task') await setLabels(iss, withSingle(iss.labels, 'status:', '완료'));
+  toast(`PR #${pr.number} 을 병합했습니다`, 4000);
+  await loadPRs().catch(() => {});
+  renderAll();
+  showPR(pr.number);
 }
 
 async function saveDrawerLabels() {
@@ -602,7 +776,9 @@ function bind() {
     const nav = !e.target.closest('[data-issue]') && e.target.closest('[data-nav]');
     if (nav) { e.preventDefault(); navTo(nav.dataset.nav); return; }
     const card = e.target.closest('[data-issue]');
-    if (card && !e.target.closest('#drawer')) { e.preventDefault(); showIssue(card.dataset.issue); }
+    if (card && !e.target.closest('#drawer')) { e.preventDefault(); showIssue(card.dataset.issue); return; }
+    const prRow = e.target.closest('[data-pr]');
+    if (prRow && !e.target.closest('#drawer')) { e.preventDefault(); showPR(prRow.dataset.pr); }
   });
   $('#reload').onclick = () => boot();
   $('#dr-close').onclick = closeDrawer;
@@ -628,6 +804,9 @@ function bind() {
   ['#bt-kind', '#bt-status', '#bt-pri', '#bt-state'].forEach(s => $(s).addEventListener('change', renderBts));
   $('#bt-q').addEventListener('input', renderBts);
   $('#bug-new').onclick = newBugForm;
+
+  // PR
+  ['#pr-state', '#pr-all'].forEach(s => $(s).addEventListener('change', renderPRs));
 
   // 기획서
   $('#plan-version').addEventListener('change', e => loadPlan(e.target.value).then(renderAll).catch(err => toast(err.message, 5000)));
@@ -659,7 +838,11 @@ function bind() {
     const id = e.target.id;
     const i = S.current;
     try {
-      if (id === 'd-save') await saveDrawerLabels();
+      if (id === 'p-approve') await reviewPR('APPROVE');
+      else if (id === 'p-changes') await reviewPR('REQUEST_CHANGES');
+      else if (id === 'p-comment') await reviewPR('COMMENT');
+      else if (id === 'p-merge-btn') { e.target.disabled = true; await mergePR(); }
+      else if (id === 'd-save') await saveDrawerLabels();
       else if (id === 'd-run') { if (!i.labels.includes('agent-run')) await setLabels(i, [...i.labels, 'agent-run']); toast('agent-run 라벨을 붙였습니다. 러너가 없으면 라벨만 남습니다.', 4000); showIssue(i.number); }
       else if (id === 'd-prompt') copy(agentPrompt(i));
       else if (id === 'd-close') {
@@ -752,7 +935,8 @@ async function checkToken() {
   if (!await step(`${esc(c.repo)} 저장소가 보입니다`, `/repos/${c.repo}`)) return;
   await step('이슈를 읽을 수 있습니다', `/repos/${c.repo}/issues?per_page=1`);
   await step('기획서를 읽을 수 있습니다 (Contents)', `/repos/${c.repo}/contents/${encPath(PLAN_DIR)}?ref=${encodeURIComponent(c.branch)}`);
-  line('INFO', '이슈 쓰기 권한은 처음 저장할 때 확인됩니다. 「쓰기 권한이 없습니다」가 나오면 발급 안내 5단계를 보세요.');
+  await step('PR 을 읽을 수 있습니다 (Pull requests)', `/repos/${c.repo}/pulls?per_page=1`);
+  line('INFO', '쓰기 권한(이슈 저장, PR 승인·병합)은 처음 쓸 때 확인됩니다. 「권한이 없습니다」가 나오면 발급 안내 5단계를 보세요.');
 }
 
 function fillSettings() {
@@ -772,6 +956,7 @@ function fillSettings() {
 async function boot() {
   fillSettings();
   try { await loadIssues(); } catch (e) { toast(e.message, 6000); }
+  try { await loadPRs(); } catch (e) { S.prs = []; toast(e.message, 6000); }
   try {
     await loadPlanVersions();
     const cur = S.planVersion && S.planVersions.includes(S.planVersion) ? S.planVersion : S.planVersions[0];

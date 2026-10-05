@@ -70,11 +70,12 @@ th{background:var(--soft);color:var(--muted);font-weight:600}
     <li><b>GameMaker 저장소만 고릅니다.</b><br>
       <span class="ui">Repository access</span> 에서 <span class="ui">Only select repositories</span> 를 누릅니다.<br>
       아래에 생기는 <span class="ui">Select repositories</span> 를 누르고 <code>GameMaker</code> 를 검색해 체크합니다.</li>
-    <li><b>권한 두 가지를 켭니다.</b> (가장 많이 틀리는 단계입니다)<br>
+    <li><b>권한 세 가지를 켭니다.</b> (가장 많이 틀리는 단계입니다)<br>
       <span class="ui">Permissions</span> 아래 <span class="ui">Repository permissions</span> 를 펼칩니다.<br>
       목록에서 <span class="ui">Issues</span> 줄을 찾아 오른쪽 <span class="ui">Access: No access</span> 를 눌러 <span class="ui">Read and write</span> 로 바꿉니다.<br>
-      <span class="ui">Contents</span> 줄은 <span class="ui">Read-only</span> 로 바꿉니다.<br>
-      <span class="small">목록 대신 <span class="ui">+ Add permissions</span> 버튼이 보이면, 눌러서 <span class="ui">Issues</span> 와 <span class="ui">Contents</span> 를 체크해 추가한 뒤 위처럼 각각 바꿉니다.</span><br>
+      <span class="ui">Pull requests</span> 줄도 <span class="ui">Read and write</span> 로 바꿉니다 (PR 탭에서 승인).<br>
+      <span class="ui">Contents</span> 줄은 PR 탭에서 병합까지 하려면 <span class="ui">Read and write</span>, 보기만 하려면 <span class="ui">Read-only</span> 로 바꿉니다.<br>
+      <span class="small">목록 대신 <span class="ui">+ Add permissions</span> 버튼이 보이면, 눌러서 <span class="ui">Issues</span>, <span class="ui">Pull requests</span>, <span class="ui">Contents</span> 를 체크해 추가한 뒤 위처럼 각각 바꿉니다.</span><br>
       <span class="small"><span class="ui">Metadata: Read-only</span> 는 자동으로 붙습니다. 그 밖의 권한은 건드리지 않습니다.</span></li>
     <li><b>토큰을 만듭니다.</b><br>
       맨 아래 <span class="ui">Generate token</span> 을 누릅니다. 확인 창이 뜨면 한 번 더 <span class="ui">Generate token</span> 을 누릅니다.</li>
@@ -123,6 +124,7 @@ th{background:var(--soft);color:var(--muted);font-weight:600}
     <tr><td>GameMaker 저장소가 보이지 않습니다</td><td>Dong: 4단계에서 GameMaker 를 고르지 않았습니다. Wan: 초대를 수락하지 않았습니다</td><td>Dong: 토큰 목록에서 해당 토큰을 눌러 저장소를 추가합니다. Wan: 초대를 수락합니다</td></tr>
     <tr><td>기획서를 읽을 수 없습니다</td><td>Contents 권한이 없습니다</td><td>Dong: 5단계 Contents 를 Read-only 로 바꿉니다</td></tr>
     <tr><td>저장할 때 「권한이 없습니다」</td><td>Issues 가 Read and write 가 아닙니다</td><td>Dong: 5단계 Issues 를 Read and write 로 바꿉니다. Wan: repo 를 체크해 새로 만듭니다</td></tr>
+    <tr><td>PR 을 읽을 수 없습니다 / PR 을 승인·병합할 수 없습니다</td><td>Pull requests 권한이 없거나, 병합에 필요한 Contents 쓰기가 없습니다</td><td>Dong: 5단계 Pull requests 를 Read and write, 병합하려면 Contents 도 Read and write 로 바꿉니다</td></tr>
     <tr><td>repo 권한이 없습니다</td><td>classic 토큰에서 repo 를 체크하지 않았습니다</td><td>위 링크로 다시 만듭니다 (repo 가 미리 체크됨)</td></tr>
   </table></div>
   <p class="small">이미 만든 fine-grained 토큰은 <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener">토큰 목록</a>에서 이름을 눌러 저장소와 권한을 고칠 수 있습니다. 고친 뒤에도 토큰 글자는 그대로라 다시 붙여 넣을 필요가 없습니다.</p>

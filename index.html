@@ -82,6 +82,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:var(--soft)}
     <button data-view="plan">기획서</button>
     <button data-view="board">일감</button>
     <button data-view="bts">버그</button>
+    <button data-view="prs">PR</button>
     <button data-view="ai">Claude</button>
     <button data-view="settings">설정</button>
   </nav>
@@ -166,6 +167,17 @@ tr.click{cursor:pointer}tr.click:hover td{background:var(--soft)}
       <button class="btn pri" id="bug-new">버그 등록</button>
     </div>
     <div class="tablewrap"><table id="bt-table"></table></div>
+  </section>
+
+  <!-- PR -->
+  <section class="view" id="v-prs">
+    <h2>PR</h2>
+    <p class="small muted">설계서 PR(<code>design/*</code>)과 구현 PR(<code>task/*</code>)을 보고 승인·병합합니다. 병합은 사람 1명 이상 승인하고 변경 요청이 없을 때만 됩니다 (18-2). 에이전트는 병합하지 않습니다.</p>
+    <div class="row">
+      <select id="pr-state"><option value="open">열린 것</option><option value="merged">병합됨</option><option value="closed">닫힘</option><option value="all">전체</option></select>
+      <label class="small"><input type="checkbox" id="pr-all"> 슬라임 외 PR 포함</label>
+    </div>
+    <div class="tablewrap" style="margin-top:8px"><table id="pr-table"></table></div>
   </section>
 
   <!-- Claude -->
