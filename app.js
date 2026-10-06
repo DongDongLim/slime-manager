@@ -74,6 +74,8 @@ async function gh(path, { method = 'GET', body, raw = false } = {}) {
   const c = cfg();
   const res = await fetch(`https://api.github.com${path}`, {
     method,
+    // GitHub 응답은 브라우저가 60초 캐시한다 (max-age=60). 그러면 방금 바뀐 라벨·PR 이 새로고침해도 옛 값으로 나온다.
+    cache: 'no-store',
     headers: {
       Accept: raw ? 'application/vnd.github.raw' : 'application/vnd.github+json',
       Authorization: `Bearer ${c.gh}`,
@@ -594,6 +596,34 @@ function agentPrompt(i) {
 }
 function inboxPrompt() { return `pm, 받은 일감 확인 (gh issue list --label slime 에서 내 Owner 일감 중 상태가 스펙완료·설계승인·수정요청인 것)`; }
 
+// 본문 체크박스 (GitHub 작업 목록 "- [ ]" / "- [x]"). 누르면 그 줄만 바꿔 이슈 본문에 저장한다.
+const TASK_LINE = /^(\s*[-*+] \[)([ xX])(\] )/;
+function bodyHtml(body) {
+  return (body || '').split('\n').map((line, n) => {
+    const m = line.match(TASK_LINE);
+    if (!m) return esc(line);
+    const on = m[2] !== ' ';
+    return `${esc(m[1].slice(0, -1))}<input type="checkbox" class="body-chk" data-line="${n}"${on ? ' checked' : ''}>${esc(line.slice(m[0].length - 1))}`;
+  }).join('\n');
+}
+async function toggleBodyCheck(issue, n, on) {
+  const flip = body => {
+    const lines = (body || '').split('\n');
+    if (!TASK_LINE.test(lines[n] || '')) return null;
+    lines[n] = lines[n].replace(TASK_LINE, `$1${on ? 'x' : ' '}$3`);
+    return lines.join('\n');
+  };
+  if (S.demo) { issue.body = flip(issue.body) ?? issue.body; return; }
+  // 다른 사람이 그사이 본문을 고쳤을 수 있으니 최신 본문에서 같은 줄을 바꾼다.
+  const c = cfg();
+  const fresh = await gh(`/repos/${c.repo}/issues/${issue.number}`);
+  const prev = (issue.body || '').split('\n')[n];
+  const body = (fresh.body || '').split('\n')[n] === prev ? flip(fresh.body) : null;
+  if (body === null) { replaceIssue(fresh); showIssue(issue.number); throw new Error('본문이 그사이 바뀌었습니다. 다시 불러왔으니 한 번 더 눌러 주세요.'); }
+  replaceIssue(await gh(`/repos/${c.repo}/issues/${issue.number}`, { method: 'PATCH', body: { body } }));
+  S.current = S.issues.find(x => x.number === issue.number);
+}
+
 async function showIssue(n) {
   const i = S.issues.find(x => x.number === Number(n));
   if (!i) return;
@@ -615,7 +645,7 @@ async function showIssue(n) {
       <button class="btn" id="d-prompt">Claude Code 지시문 복사</button>
       <button class="btn ${i.state === 'open' ? 'warn' : ''}" id="d-close">${i.state === 'open' ? '이슈 닫기' : '다시 열기'}</button>
     </div>
-    <h3>본문</h3><div class="body-md">${esc(i.body) || '<span class="muted">(비어 있음)</span>'}</div>
+    <h3>본문</h3><div class="body-md">${bodyHtml(i.body) || '<span class="muted">(비어 있음)</span>'}</div>
     <h3>댓글</h3><div id="d-comments" class="small muted">${S.demo ? '데모 모드' : '불러오는 중…'}</div>
     <textarea id="d-cmt" placeholder="댓글. 수정 요청은 /수정 으로 시작 (23-2)"></textarea>
     <div class="row" style="margin-top:6px"><button class="btn pri" id="d-cmt-send">댓글 달기</button><button class="btn" id="d-revise">/수정 양식 넣기</button></div>`);
@@ -838,6 +868,13 @@ function bind() {
     const id = e.target.id;
     const i = S.current;
     try {
+      if (e.target.classList.contains('body-chk')) {
+        e.target.disabled = true;
+        try { await toggleBodyCheck(i, Number(e.target.dataset.line), e.target.checked); toast(e.target.checked ? '체크했습니다' : '체크를 풀었습니다'); }
+        catch (err) { e.target.checked = !e.target.checked; throw err; }
+        finally { e.target.disabled = false; }
+        return;
+      }
       if (id === 'p-approve') await reviewPR('APPROVE');
       else if (id === 'p-changes') await reviewPR('REQUEST_CHANGES');
       else if (id === 'p-comment') await reviewPR('COMMENT');
@@ -965,6 +1002,25 @@ async function boot() {
   } catch (e) { toast(e.message, 6000); }
   renderAll();
 }
+
+// 자동 갱신: 다른 사람·에이전트가 바꾼 이슈·PR 을 페이지를 다시 열지 않아도 보이게 한다.
+// 탭이 보일 때 1분마다, 그리고 탭으로 돌아왔을 때. 기획서 일감 화면에서 고르는 중이면 선택이 풀리지 않게 건너뛴다.
+const AUTO_REFRESH_MS = 60000;
+let refreshing = false, lastRefresh = Date.now();
+async function autoRefresh() {
+  if (S.demo || document.hidden || refreshing || document.querySelector('.pt-chk:checked')) return;
+  refreshing = true;
+  try {
+    await loadIssues();
+    await loadPRs();
+    if (S.current) S.current = S.issues.find(x => x.number === S.current.number) || S.current;
+    renderAll();
+    lastRefresh = Date.now();
+  } catch { /* 다음 차례에 다시 시도 */ }
+  finally { refreshing = false; }
+}
+setInterval(autoRefresh, AUTO_REFRESH_MS);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastRefresh > 15000) autoRefresh(); });
 
 bind();
 const startView = (location.hash || '').slice(1);
